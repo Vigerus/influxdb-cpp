@@ -38,13 +38,11 @@ namespace influxdb_cpp {
     struct server_info {
         std::string host_;
         int port_;
-        std::string db_;
-        std::string usr_;
-        std::string pwd_;
-        std::string precision_;
+        std::string bucket_;
+        std::string org_;
         std::string token_;
-        server_info(const std::string& host, int port, const std::string& db = "", const std::string& usr = "", const std::string& pwd = "", const std::string& precision = "ms", const std::string& token = "")
-            : host_(host), port_(port), db_(db), usr_(usr), pwd_(pwd), precision_(precision), token_(token) {}
+        server_info(const std::string& host, int port, const std::string& bucket = "", const std::string& org = "", const std::string& token = "")
+            : host_(host), port_(port), bucket_(bucket), org_(org), token_(token) {}
     };
     namespace detail {
         struct meas_caller;
@@ -210,7 +208,8 @@ namespace influxdb_cpp {
             addr.sin_port = htons(si.port_);
             if((addr.sin_addr.s_addr = inet_addr(si.host_.c_str())) == INADDR_NONE) return -1;
 
-            if((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) return -2;
+            sock = socket(AF_INET, SOCK_STREAM, 0);
+            if(sock == INVALID_SOCKET) return -2;
 
             struct timeval timeout;
             timeout.tv_sec = static_cast<long>(timeout_sec);
@@ -226,9 +225,9 @@ namespace influxdb_cpp {
 
             for(;;) {
                 iv[0].iov_len = snprintf(&header[0], len, 
-                    "%s /%s?db=%s%s%s%s%s%s%s%s HTTP/1.1\r\nHost: %s%s%s\r\nContent-Length: %d\r\n\r\n", 
-                    method, uri, si.db_.c_str(), !si.token_.empty() ? "" : "&u=", !si.token_.empty() ? "" : si.usr_.c_str(), !si.token_.empty() ? "" : "&p=", !si.token_.empty() ? "" : si.pwd_.c_str(),
-                    strcmp(uri, "write") ? "&epoch=" : "&precision=", si.precision_.c_str(), querystring.c_str(), si.host_.c_str(), si.token_.empty() ? "" : "\r\nAuthorization: Token ", si.token_.c_str(), (int)body.length());
+                    "%s /api/v2/%s?bucket=%s&org=%s%s%s HTTP/1.1\r\nHost: %s%s%s\r\nContent-Length: %d\r\n\r\n", 
+                    method, uri, si.bucket_.c_str(), si.org_.c_str(), 
+                    "&precision=ns", querystring.c_str(), si.host_.c_str(), si.token_.empty() ? "" : "\r\nAuthorization: Token ", si.token_.c_str(), (int)body.length());
                 if(static_cast<int>(iv[0].iov_len) >= len)
                     header.resize(len *= 2);
                 else
